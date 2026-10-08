@@ -5423,11 +5423,16 @@ static void kvm_vcpu_ioctl_x86_get_debugregs(struct kvm_vcpu *vcpu,
 					     struct kvm_debugregs *dbgregs)
 {
 	unsigned long val;
+	unsigned int i;
 
 	kvm_handle_exception_payload_quirk(vcpu);
 
 	memset(dbgregs, 0, sizeof(*dbgregs));
-	memcpy(dbgregs->db, vcpu->arch.db, sizeof(vcpu->arch.db));
+
+	BUILD_BUG_ON(ARRAY_SIZE(vcpu->arch.db) != ARRAY_SIZE(dbgregs->db));
+	for (i = 0; i < ARRAY_SIZE(vcpu->arch.db); i++)
+		dbgregs->db[i] = vcpu->arch.db[i];
+
 	kvm_get_dr(vcpu, 6, &val);
 	dbgregs->dr6 = val;
 	dbgregs->dr7 = vcpu->arch.dr7;
@@ -5436,6 +5441,8 @@ static void kvm_vcpu_ioctl_x86_get_debugregs(struct kvm_vcpu *vcpu,
 static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
 					    struct kvm_debugregs *dbgregs)
 {
+	unsigned int i;
+
 	if (dbgregs->flags)
 		return -EINVAL;
 
@@ -5444,7 +5451,9 @@ static int kvm_vcpu_ioctl_x86_set_debugregs(struct kvm_vcpu *vcpu,
 	if (!kvm_dr7_valid(dbgregs->dr7))
 		return -EINVAL;
 
-	memcpy(vcpu->arch.db, dbgregs->db, sizeof(vcpu->arch.db));
+	for (i = 0; i < ARRAY_SIZE(vcpu->arch.db); i++)
+		vcpu->arch.db[i] = dbgregs->db[i];
+
 	kvm_update_dr0123(vcpu);
 	vcpu->arch.dr6 = dbgregs->dr6;
 	vcpu->arch.dr7 = dbgregs->dr7;
@@ -8351,12 +8360,9 @@ static int emulator_get_msr(struct x86_emulate_ctxt *ctxt,
 	return kvm_get_msr(emul_to_vcpu(ctxt), msr_index, pdata);
 }
 
-static int emulator_check_pmc(struct x86_emulate_ctxt *ctxt,
-			      u32 pmc)
+static int emulator_check_rdpmc_early(struct x86_emulate_ctxt *ctxt, u32 pmc)
 {
-	if (kvm_pmu_is_valid_rdpmc_ecx(emul_to_vcpu(ctxt), pmc))
-		return 0;
-	return -EINVAL;
+	return kvm_pmu_check_rdpmc_early(emul_to_vcpu(ctxt), pmc);
 }
 
 static int emulator_read_pmc(struct x86_emulate_ctxt *ctxt,
@@ -8483,7 +8489,7 @@ static const struct x86_emulate_ops emulate_ops = {
 	.set_msr_with_filter = emulator_set_msr_with_filter,
 	.get_msr_with_filter = emulator_get_msr_with_filter,
 	.get_msr             = emulator_get_msr,
-	.check_pmc	     = emulator_check_pmc,
+	.check_rdpmc_early   = emulator_check_rdpmc_early,
 	.read_pmc            = emulator_read_pmc,
 	.halt                = emulator_halt,
 	.wbinvd              = emulator_wbinvd,

@@ -1327,6 +1327,9 @@ struct netdev_net_notifier {
  * int (*ndo_mdb_del)(struct net_device *dev, struct nlattr *tb[],
  *		      struct netlink_ext_ack *extack);
  *	Deletes the MDB entry from dev.
+ * int (*ndo_mdb_del_bulk)(struct net_device *dev, struct nlattr *tb[],
+ *			   struct netlink_ext_ack *extack);
+ *	Bulk deletes MDB entries from dev.
  * int (*ndo_mdb_dump)(struct net_device *dev, struct sk_buff *skb,
  *		       struct netlink_callback *cb);
  *	Dumps MDB entries from dev. The first argument (marker) in the netlink
@@ -1671,8 +1674,13 @@ struct net_device_ops {
 						    struct netlink_ext_ack *extack);
 
 
-	DEEPIN_KABI_RESERVE(1)
-	DEEPIN_KABI_RESERVE(2)
+	DEEPIN_KABI_USE(1, int (*ndo_mdb_get)(struct net_device *dev,
+					       struct nlattr *tb[], u32 portid,
+					       u32 seq,
+					       struct netlink_ext_ack *extack))
+	DEEPIN_KABI_USE(2, int (*ndo_mdb_del_bulk)(struct net_device *dev,
+						    struct nlattr *tb[],
+						    struct netlink_ext_ack *extack))
 	DEEPIN_KABI_RESERVE(3)
 	DEEPIN_KABI_RESERVE(4)
 	DEEPIN_KABI_RESERVE(5)
